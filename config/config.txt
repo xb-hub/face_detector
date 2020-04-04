@@ -1,0 +1,6 @@
+image_width : 92
+image_height : 112
+dim : 40
+train_file : ../config/train.txt
+test_file : ../config/test.txt
+save_file : ../data/save_data.txt
