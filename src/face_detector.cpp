@@ -74,6 +74,7 @@ void FaceDetector::detector()
 
     test_data_Matrix_ = test_zero_Matrix * basic_Matrix_;
 
+    int count = 0;
     for(int i = 0; i < test_data_Matrix_.rows(); i++)
     {
         double min_difference = -1;
@@ -86,8 +87,13 @@ void FaceDetector::detector()
                 detector_label = train_label_[j];
             }
         }
+        if(test_label_[i] == detector_label)
+        {
+            count++;
+        }
         cout << "识别结果：" << detector_label << "    测试标签：" << test_label_[i] << endl;
     }
+    cout << "准确率：" << count * 1.0 / test_data_Matrix_.rows() * 100 << "%" << endl;
 }
 
 void FaceDetector::setTrainMatrix(const string train_path_)
