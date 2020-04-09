@@ -13,5 +13,5 @@ int main() {
     face_detector->init("../config/config.txt");
     face_detector->process();
     face_detector->detector();
-    face_detector->detector("../orl_faces/s27/3.pgm", false);
+    face_detector->detector("../orl_faces/s1/5.pgm", false);
 }

@@ -14,5 +14,5 @@ int main() {
     face_detector->read_detector();
     face_detector->detector();
 
-    face_detector->detector("../orl_faces/s27/3.pgm", true);
+    face_detector->detector("../orl_faces/s12/3.pgm", true);
 }
