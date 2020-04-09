@@ -31,17 +31,16 @@ void FaceDetector::process()
     int size = config_->image_width_ * config_->image_height_;  // 未进行pca处理图像维数
     // 将图像转化为列向量并存储
     setTrainMatrix(config_->train_path_);
-    setTestMatrix(config_->test_path_);
 
     cout << "Finished Matrix Setting..." << endl;
 
     // 计算每一维的均值`
     MatrixXd mean_Matrix_ = train_Matrix_.colwise().mean();
-    train_mean = mean_Matrix_;
+    train_mean_ = mean_Matrix_;
 
     // 零均值化
     MatrixXd train_zero_Matrix = train_Matrix_;
-    train_zero_Matrix.rowwise() -= train_mean;
+    train_zero_Matrix.rowwise() -= train_mean_;
 
     cout << "Finished Zero..." << endl;
 
@@ -64,13 +63,15 @@ void FaceDetector::process()
         basic_Matrix_.col(i) = basic_Matrix_.col(i) / sqrt(basic_square_Matrix.col(i).sum());
     }
     train_data_Matrix_ = train_zero_Matrix * basic_Matrix_;
+    saveData(config_->save_path_);
 }
 
 void FaceDetector::detector()
 {
+    setTestMatrix(config_->test_path_);
     int detector_label;
     MatrixXd test_zero_Matrix = test_Matrix_;
-    test_zero_Matrix.rowwise() -= train_mean;
+    test_zero_Matrix.rowwise() -= train_mean_;
 
     test_data_Matrix_ = test_zero_Matrix * basic_Matrix_;
 
@@ -96,10 +97,79 @@ void FaceDetector::detector()
     cout << "准确率：" << count * 1.0 / test_data_Matrix_.rows() * 100 << "%" << endl;
 }
 
+void FaceDetector::detector(Mat image)
+{
+    int size = config_->image_height_ * config_->image_width_;
+    image.reshape(0, 1);
+    MatrixXd detector_Matrix = MatrixXd::Zero(1, size);
+    for(int i = 0; i < size; i++)
+    {
+        detector_Matrix.coeffRef(1, i) = image.data[i];
+    }
+
+    MatrixXd detector_zero_Matrix = detector_Matrix;
+    detector_zero_Matrix -= train_mean_;
+
+    MatrixXd detector_data_Matrix = detector_zero_Matrix * basic_Matrix_;
+
+    int detector_label = -1;
+
+    double min_difference = -1;
+    for(int j = 0; j < train_data_Matrix_.rows(); j++)
+    {
+        double difference = (detector_data_Matrix - train_data_Matrix_.row(j)).squaredNorm();
+        if(min_difference < 0 || difference < min_difference)
+        {
+            min_difference = difference;
+            detector_label = train_label_[j];
+        }
+    }
+    cout << "识别结果：" << getLabel(config_->label_path_, detector_label) << endl;
+}
+
+void FaceDetector::detector(const string image_path)
+{
+    if(image_path.size() <= 0)
+    {
+        cout << "The Image Path is Error..." << endl;
+        return;
+    }
+    Mat image = imread(image_path, IMREAD_GRAYSCALE);
+    if(image.empty())
+    {
+        cout << "Open Image Failure..." << endl;
+        return;
+    }
+    detector(image);
+}
+
+void FaceDetector::read_detector()
+{
+    readData(config_->save_path_);
+    detector();
+}
+
+void FaceDetector::read_detector(const string image_path)
+{
+    if(image_path.size() <= 0)
+    {
+        cout << "The Image Path is Error..." << endl;
+        return;
+    }
+    Mat image = imread(image_path, IMREAD_GRAYSCALE);
+    if(image.empty())
+    {
+        cout << "Open Image Failure..." << endl;
+        return;
+    }
+//    readData(config_->save_path_);
+    detector(image);
+}
+
 void FaceDetector::setTrainMatrix(const string train_path_)
 {
-    if(train_path_.size() == 0) cout << "The Path is empty..." << endl;
-    fstream file(train_path_);
+    if(train_path_.size() <= 0) cout << "The Path is empty..." << endl;
+    ifstream file(train_path_);
     if(!file.is_open()) cout << "Open File Failure..." << endl;
 
     string content;
@@ -120,12 +190,13 @@ void FaceDetector::setTrainMatrix(const string train_path_)
             train_Matrix_.coeffRef(i, j) = image_data[i].data[j];
         }
     }
+    file.close();
 }
 
 void FaceDetector::setTestMatrix(const string test_path_)
 {
-    if(test_path_.size() == 0) cout << "The Path is Empty..." << endl;
-    fstream file(test_path_);
+    if(test_path_.size() <= 0) cout << "The Path is Empty..." << endl;
+    ifstream file(test_path_);
     if(!file.is_open()) cout << "Open File Failure..." << endl;
 
     string content;
@@ -146,8 +217,164 @@ void FaceDetector::setTestMatrix(const string test_path_)
             test_Matrix_.coeffRef(i, j) = image_data[i].data[j];
         }
     }
+    file.close();
 }
 
-void FaceDetector::saveData(const string save_path_) {}
+string FaceDetector::getLabel(const string label_path, int detector_label)
+{
+    if(label_path.size() <= 0)
+    {
+        return "Path Error...";
+    }
+    ifstream file(label_path);
+    if(!file.is_open())
+    {
+        return "Open Label File Failure...";
+    }
+    string input_str;
+    while (getline(file, input_str))
+    {
+        vector<string> sp = config_->n_split(input_str, ':');
+        if(detector_label == stoi(sp[0]))
+        {
+            return sp[1];
+        }
+    }
+    file.close();
+    return "Can't detector...";
+}
 
-void FaceDetector::readData(const string data_path_) {}
+void FaceDetector::n_resize(Mat &image) {}
+
+void FaceDetector::saveData(const string data_path_)
+{
+    cout << "Saving Data..." << endl;
+    if(data_path_.size() <= 0)
+    {
+        cout << "Path Error..." << endl;
+        return;
+    }
+    ofstream file(data_path_);
+    if(!file.is_open())
+    {
+        cout << "Open File Failure..." << endl;
+        return;
+    }
+    file.clear();
+    file << "train_mean_Matrix : " << train_mean_ << endl;
+
+    file << "train_label : ";
+    for(int i = 0; i < train_label_.size(); i++)
+    {
+        file << train_label_[i] << " ";
+    }
+    file << endl;
+
+    file << "train_data_Matrix : ";
+    for(int i = 0; i < train_data_Matrix_.rows(); i++)
+    {
+        file << train_data_Matrix_.row(i) << ",";
+    }
+    file << endl;
+
+    file << "basic_Matrix : ";
+    for(int i = 0; i < basic_Matrix_.rows(); i++)
+    {
+        file << basic_Matrix_.row(i) << ",";
+    }
+    cout << "Save Data Success..." << endl;
+    file.close();
+}
+
+void FaceDetector::readData(const string data_path_)
+{
+    cout << "Read Data..." << endl;
+    if(data_path_.size() <= 0)
+    {
+        cout << "Path Error..." << endl;
+        return;
+    }
+    ifstream file(data_path_);
+    if(!file.is_open())
+    {
+        cout << "Open Label File Failure..." << endl;
+        return;
+    }
+    string input_str;
+    while (getline(file, input_str))
+    {
+        vector<string> sp = config_->n_split(input_str, ':');
+        if(sp[0] == "train_mean_Matrix")
+        {
+            vector<string> matrix = config_->n_split(sp[1], ' ');
+            vector<double> mean;
+            for(int i = 0; i < matrix.size(); i++)
+            {
+                if(matrix[i] == "") continue;
+                mean.push_back(stod(matrix[i]));
+            }
+            train_mean_ = MatrixXd::Zero(1, mean.size());
+            for(int i = 0; i < mean.size(); i++)
+            {
+                train_mean_.coeffRef(0, i) = mean[i];
+            }
+        }
+        else if(sp[0] == "train_label")
+        {
+            vector<string> matrix = config_->n_split(sp[1], ' ');
+            for(auto it : matrix)
+            {
+                train_label_.push_back(stoi(it));
+            }
+        }
+        else if(sp[0] == "train_data_Matrix")
+        {
+            vector<string> matrix_row = config_->n_split(sp[1], ',');
+            vector<vector<double>> train_data;
+            for(int i = 0; i < matrix_row.size(); i++)
+            {
+                vector<double> vector_col;
+                vector<string> matrix_col = config_->n_split(matrix_row[i], ' ');
+                for(int j = 0; j < matrix_col.size(); j++)
+                {
+                    if(matrix_col[j] == "") continue;
+                    vector_col.push_back(stod(matrix_col[j]));
+                }
+                if(vector_col.size() > 0)   train_data.push_back(vector_col);
+            }
+            train_data_Matrix_ = MatrixXd::Zero(train_data.size(), train_data[0].size());
+            for(int i = 0; i < train_data.size(); i++)
+            {
+                for(int j = 0; j < train_data[i].size(); j++)
+                {
+                    train_data_Matrix_.coeffRef(i, j) = train_data[i][j];
+                }
+            }
+        }
+        else if(sp[0] == "basic_Matrix")
+        {
+
+            vector<string> matrix_row = config_->n_split(sp[1], ',');
+            vector<vector<double>> basic_data;
+            for(int i = 0; i < matrix_row.size(); i++)
+            {
+                vector<double> vector_col;
+                vector<string> matrix_col = config_->n_split(matrix_row[i], ' ');
+                for(int j = 0; j < matrix_col.size(); j++)
+                {
+                    if(matrix_col[j] == "") continue;
+                    vector_col.push_back(stod(matrix_col[j]));
+                }
+                if(vector_col.size() > 0)   basic_data.push_back(vector_col);
+            }
+            basic_Matrix_ = MatrixXd::Zero(basic_data.size(), basic_data[0].size());
+            for(int i = 0; i < basic_data.size(); i++)
+            {
+                for(int j = 0; j < basic_data[i].size(); j++)
+                {
+                    basic_Matrix_.coeffRef(i, j) = basic_data[i][j];
+                }
+            }
+        }
+    }
+}

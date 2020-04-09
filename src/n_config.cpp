@@ -38,19 +38,21 @@ NConfig::~NConfig()
 
 void NConfig::init(const std::string config_path)
 {
-    fstream file(config_path);
+    ifstream file(config_path);
     if(!file.is_open()) cout << "Open File Failure..." << endl;
     string content;
     while (getline(file, content))
     {
         vector<string> sp = n_split(content, ':');
         if(sp[0] == "image_width")  image_width_ = stoi(sp[1]);
-        if(sp[0] == "image_height") image_height_ = stoi(sp[1]);
-        if(sp[0] == "dim")          dim_ = stoi(sp[1]);
-        if(sp[0] == "train_file")   train_path_ = sp[1];
-        if(sp[0] == "test_file")    test_path_ = sp[1];
-        if(sp[0] == "save_file")    save_path_ = sp[1];
+        else if(sp[0] == "image_height") image_height_ = stoi(sp[1]);
+        else if(sp[0] == "dim")          dim_ = stoi(sp[1]);
+        else if(sp[0] == "train_file")   train_path_ = sp[1];
+        else if(sp[0] == "test_file")    test_path_ = sp[1];
+        else if(sp[0] == "label_file")    label_path_ = sp[1];
+        else if(sp[0] == "save_file")    save_path_ = sp[1];
     }
+    file.close();
 }
 
 vector<string> NConfig::n_split(std::string str, char sign)

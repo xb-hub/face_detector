@@ -20,6 +20,7 @@ public:
 
     std::string train_path_;
     std::string test_path_;
+    std::string label_path_;
     std::string save_path_;
 
     NConfig();

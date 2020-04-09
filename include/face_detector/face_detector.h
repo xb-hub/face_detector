@@ -5,6 +5,7 @@
 #ifndef FACE_DETECTOR_FACE_DETECTOR_H
 #define FACE_DETECTOR_FACE_DETECTOR_H
 
+#include <opencv2/opencv.hpp>
 #include <vector>
 #include <Eigen/Dense>
 #include "face_detector/n_config.h"
@@ -20,7 +21,7 @@ private:
     Eigen::MatrixXd train_data_Matrix_;
     Eigen::MatrixXd test_data_Matrix_;
     Eigen::MatrixXd basic_Matrix_;
-    Eigen::RowVectorXd train_mean;
+    Eigen::RowVectorXd train_mean_;
 
     std::vector<int> train_label_;
     std::vector<int> test_label_;
@@ -32,12 +33,20 @@ public:
     void setTrainMatrix(const std::string train_path_);
     void setTestMatrix(const std::string test_path_);
 
-    void saveData(const std::string save_path_);
+    void saveData(const std::string data_path_);
     void readData(const std::string data_path_);
 
     void init(const std::string config_path);
     void process();
+
     void detector();
+    void detector(cv::Mat image);
+    void detector(const std::string image_path);
+    void read_detector();
+    void read_detector(const std::string image_path);
+    std::string getLabel(const std::string label_path, int detector_label);
+
+    void n_resize(cv::Mat &image);
 };
 }
 
