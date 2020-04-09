@@ -135,9 +135,9 @@ void FaceDetector::detector(Mat image, bool is_read)
         }
         match_image.reshape(0, config_->image_height_);
         imshow("match_image", match_image);
+        waitKey(0);
     }
     cout << "识别结果：" << getLabel(config_->label_path_, train_label_[index]) << endl;
-    waitKey(0);
 }
 
 void FaceDetector::detector(const string image_path, bool is_read)
