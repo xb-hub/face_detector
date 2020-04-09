@@ -94,10 +94,10 @@ void FaceDetector::detector()
         }
         cout << "识别结果：" << detector_label << "    测试标签：" << test_label_[i] << endl;
     }
-    cout << "准确率：" << count * 1.0 / test_data_Matrix_.rows() * 100 << "%" << endl;
+    cout << "测试集样本数：" << test_data_Matrix_.rows() << "   识别正确数：" << count << "   准确率：" << count * 1.0 / test_data_Matrix_.rows() * 100 << "%" << endl;
 }
 
-void FaceDetector::detector(Mat image)
+void FaceDetector::detector(Mat image, bool is_read)
 {
     int size = config_->image_height_ * config_->image_width_;
     image.reshape(0, 1);
@@ -112,7 +112,7 @@ void FaceDetector::detector(Mat image)
 
     MatrixXd detector_data_Matrix = detector_zero_Matrix * basic_Matrix_;
 
-    int detector_label = -1;
+    int index = 0;
 
     double min_difference = -1;
     for(int j = 0; j < train_data_Matrix_.rows(); j++)
@@ -121,13 +121,26 @@ void FaceDetector::detector(Mat image)
         if(min_difference < 0 || difference < min_difference)
         {
             min_difference = difference;
-            detector_label = train_label_[j];
+            index = j;
         }
     }
-    cout << "识别结果：" << getLabel(config_->label_path_, detector_label) << endl;
+    if(!is_read)
+    {
+        imshow("detector_image", image);
+        Mat match_image = Mat::zeros(image.rows, image.cols, image.type());
+        match_image.reshape(0, 1);
+        for(int i = 0; i < size; i++)
+        {
+            match_image.data[i] = train_Matrix_.coeffRef(index, i);
+        }
+        match_image.reshape(0, config_->image_height_);
+        imshow("match_image", match_image);
+    }
+    cout << "识别结果：" << getLabel(config_->label_path_, train_label_[index]) << endl;
+    waitKey(0);
 }
 
-void FaceDetector::detector(const string image_path)
+void FaceDetector::detector(const string image_path, bool is_read)
 {
     if(image_path.size() <= 0)
     {
@@ -140,30 +153,13 @@ void FaceDetector::detector(const string image_path)
         cout << "Open Image Failure..." << endl;
         return;
     }
-    detector(image);
+    cout << "识别文件：" << image_path << endl;
+    detector(image, is_read);
 }
 
 void FaceDetector::read_detector()
 {
     readData(config_->save_path_);
-    detector();
-}
-
-void FaceDetector::read_detector(const string image_path)
-{
-    if(image_path.size() <= 0)
-    {
-        cout << "The Image Path is Error..." << endl;
-        return;
-    }
-    Mat image = imread(image_path, IMREAD_GRAYSCALE);
-    if(image.empty())
-    {
-        cout << "Open Image Failure..." << endl;
-        return;
-    }
-//    readData(config_->save_path_);
-    detector(image);
 }
 
 void FaceDetector::setTrainMatrix(const string train_path_)
@@ -174,20 +170,20 @@ void FaceDetector::setTrainMatrix(const string train_path_)
 
     string content;
     int size = config_->image_height_ * config_->image_width_;
-    vector<Mat> image_data;
+    vector<Mat> train_image_data;
     while (getline(file, content))
     {
         vector<string> sp = config_->n_split(content, ' ');
         Mat image = imread(sp[0], IMREAD_GRAYSCALE);
-        image_data.push_back(image.reshape(0, 1));
+        train_image_data.push_back(image.reshape(0, 1));
         train_label_.push_back(stoi(sp[1]));
     }
-    train_Matrix_ = MatrixXd::Zero(image_data.size(), size);
-    for(int i = 0; i < image_data.size(); i++)
+    train_Matrix_ = MatrixXd::Zero(train_image_data.size(), size);
+    for(int i = 0; i < train_image_data.size(); i++)
     {
         for(int j = 0; j < size; j++)
         {
-            train_Matrix_.coeffRef(i, j) = image_data[i].data[j];
+            train_Matrix_.coeffRef(i, j) = train_image_data[i].data[j];
         }
     }
     file.close();
@@ -201,20 +197,20 @@ void FaceDetector::setTestMatrix(const string test_path_)
 
     string content;
     int size = config_->image_height_ * config_->image_width_;
-    vector<Mat> image_data;
+    vector<Mat> test_image_data;
     while (getline(file, content))
     {
         vector<string> sp = config_->n_split(content, ' ');
         Mat image = imread(sp[0], IMREAD_GRAYSCALE);
-        image_data.push_back(image.reshape(0, 1));
+        test_image_data.push_back(image.reshape(0, 1));
         test_label_.push_back(stoi(sp[1]));
     }
-    test_Matrix_ = MatrixXd::Zero(image_data.size(), size);
-    for(int i = 0; i < image_data.size(); i++)
+    test_Matrix_ = MatrixXd::Zero(test_image_data.size(), size);
+    for(int i = 0; i < test_image_data.size(); i++)
     {
         for(int j = 0; j < size; j++)
         {
-            test_Matrix_.coeffRef(i, j) = image_data[i].data[j];
+            test_Matrix_.coeffRef(i, j) = test_image_data[i].data[j];
         }
     }
     file.close();
@@ -261,6 +257,14 @@ void FaceDetector::saveData(const string data_path_)
         return;
     }
     file.clear();
+
+//    file << "train_Matrix : ";
+//    for(int i = 0; i < train_Matrix_.rows(); i++)
+//    {
+//        file << train_Matrix_.row(i) << ",";
+//    }
+//    file << endl;
+
     file << "train_mean_Matrix : " << train_mean_ << endl;
 
     file << "train_label : ";
@@ -304,6 +308,30 @@ void FaceDetector::readData(const string data_path_)
     while (getline(file, input_str))
     {
         vector<string> sp = config_->n_split(input_str, ':');
+//        if(sp[0] == "train_Matrix")
+//        {
+//            vector<string> matrix_row = config_->n_split(sp[1], ',');
+//            vector<vector<double>> train_data;
+//            for(int i = 0; i < matrix_row.size(); i++)
+//            {
+//                vector<double> vector_col;
+//                vector<string> matrix_col = config_->n_split(matrix_row[i], ' ');
+//                for(int j = 0; j < matrix_col.size(); j++)
+//                {
+//                    if(matrix_col[j] == "") continue;
+//                    vector_col.push_back(stod(matrix_col[j]));
+//                }
+//                if(vector_col.size() > 0)   train_data.push_back(vector_col);
+//            }
+//            train_Matrix_ = MatrixXd::Zero(train_data.size(), train_data[0].size());
+//            for(int i = 0; i < train_data.size(); i++)
+//            {
+//                for(int j = 0; j < train_data[i].size(); j++)
+//                {
+//                    train_Matrix_.coeffRef(i, j) = train_data[i][j];
+//                }
+//            }
+//        }
         if(sp[0] == "train_mean_Matrix")
         {
             vector<string> matrix = config_->n_split(sp[1], ' ');

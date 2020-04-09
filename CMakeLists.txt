@@ -12,8 +12,8 @@ include_directories(
         ${EIGEN3_INCLUDE_DIR}
 )
 
-add_executable(face_detector demo/demo.cpp src/face_detector.cpp src/n_config.cpp demo/detector_demo.cpp)
+add_executable(face_detector demo/demo.cpp src/face_detector.cpp src/n_config.cpp)
 target_link_libraries(face_detector ${OpenCV_LIBS})
 
-add_executable(detector_demo demo/detector_demo.cpp src/face_detector.cpp  src/n_config.cpp demo/detector_demo.cpp)
+add_executable(detector_demo demo/detector_demo.cpp src/face_detector.cpp  src/n_config.cpp)
 target_link_libraries(detector_demo ${OpenCV_LIBS})

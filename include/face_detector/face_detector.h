@@ -40,10 +40,9 @@ public:
     void process();
 
     void detector();
-    void detector(cv::Mat image);
-    void detector(const std::string image_path);
+    void detector(cv::Mat image, bool is_read);
+    void detector(const std::string image_path, bool is_read);
     void read_detector();
-    void read_detector(const std::string image_path);
     std::string getLabel(const std::string label_path, int detector_label);
 
     void n_resize(cv::Mat &image);
